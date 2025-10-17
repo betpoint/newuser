@@ -5,13 +5,11 @@ const { Pool } = pkg;
 const app = express();
 app.use(express.json());
 
-// PostgreSQL connection
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: "postgres://postgres.iznxrukdqbrcxjzhvwyk:ZHITafYu6WJqNqjJ@aws-0-us-west-1.pooler.supabase.com:5432/postgres",
   ssl: { rejectUnauthorized: false }
 });
 
-// Webhook route
 app.post("/webhook", async (req, res) => {
   const { email, row_id } = req.body;
 
@@ -31,6 +29,6 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// Start server
-app.listen(3000, () => console.log("✅ Webhook running on port 3000"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`✅ Webhook running on port ${PORT}`));
 
