@@ -10,7 +10,7 @@ app.use(express.json());
 const pool = new Pool({
   connectionString:
     "postgres://postgres.iznxrukdqbrcxjzhvwyk:ZHITafYu6WJqNqjJ@aws-0-us-west-1.pooler.supabase.com:5432/postgres",
-  ssl: { rejectUnauthorized: true }, // validate SSL certificate
+  ssl: { rejectUnauthorized: false }, // validate SSL certificate
 });
 
 // ✅ OneSignal configuration
