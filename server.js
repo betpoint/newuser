@@ -1,61 +1,68 @@
 import express from "express";
+import fetch from "node-fetch";
 import pkg from "pg";
 const { Pool } = pkg;
 
 const app = express();
 app.use(express.json());
 
-// Connect to Postgres (Supabase) with SSL
+// ✅ Direct Postgres connection (no env variables needed)
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgres://postgres.iznxrukdqbrcxjzhvwyk:ZHITafYu6WJqNqjJ@aws-0-us-west-1.pooler.supabase.com:5432/postgres",
+  connectionString: "postgres://postgres.iznxrukdqbrcxjzhvwyk:ZHITafYu6WJqNqjJ@aws-0-us-west-1.pooler.supabase.com:5432/postgres",
   ssl: { rejectUnauthorized: false }
 });
 
-// Optional: test DB connection on startup
-pool.connect()
-  .then(() => console.log("✅ DB connected"))
-  .catch(err => console.error("❌ DB connection failed:", err.stack || err));
+// ✅ OneSignal configuration
+const ONE_SIGNAL_APP_ID = "ba021ecc-a1b5-4900-b9d1-7c60c0ba955f";
+const ONE_SIGNAL_REST_API_KEY = "os_v2_app_xibb5tfbwveqboorprqmbouvl4wiembbq3huur4f46qilts2nkkbiemosz6jsvhik4kgmjqhg46q66lngabntbbih7g3bvt7bhv75qy"; // paste your real REST API key
 
-app.post("/webhook", async (req, res) => {
-  console.log("📥 Incoming payload:", req.body);
+// ✅ Function to fetch players from OneSignal
+async function fetchPlayers() {
+  const response = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONE_SIGNAL_APP_ID}`, {
+    headers: {
+      "Authorization": `Basic ${ONE_SIGNAL_REST_API_KEY}`
+    }
+  });
 
-  const { email, row_id } = req.body;
-
-  if (!email || !row_id) {
-    return res.status(400).json({ error: "Email and row_id are required" });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch players: ${response.statusText}`);
   }
 
-  try {
-    // Check if row_id exists
-    const existing = await pool.query(
-      "SELECT email FROM users WHERE row_id = $1",
-      [row_id]
-    );
+  const data = await response.json();
+  return data.players || [];
+}
 
-    if (existing.rowCount === 0) {
-      // Insert new row
-      await pool.query(
-        "INSERT INTO users (row_id, email) VALUES ($1, $2)",
-        [row_id, email]
+// ✅ Route to trigger sync manually
+app.get("/sync-onesignal", async (req, res) => {
+  try {
+    const players = await fetchPlayers();
+    let inserted = 0, updated = 0;
+
+    for (const player of players) {
+      const id = player.id;
+      const email = player.email || null;
+
+      if (!id) continue;
+
+      const result = await pool.query(
+        `INSERT INTO users (row_id, email)
+         VALUES ($1, $2)
+         ON CONFLICT (row_id) DO UPDATE SET email = EXCLUDED.email
+         RETURNING *`,
+        [id, email]
       );
-      console.log(`✅ Inserted new user: row_id=${row_id}, email=${email}`);
-    } else if (existing.rows[0].email !== email) {
-      // Update email if different
-      await pool.query(
-        "UPDATE users SET email = $1 WHERE row_id = $2",
-        [email, row_id]
-      );
-      console.log(`✅ Updated email for row_id=${row_id} to email=${email}`);
-    } else {
-      console.log(`ℹ️ No changes needed for row_id=${row_id}`);
+
+      if (result.command === "INSERT") inserted++;
+      else updated++;
     }
 
-    res.json({ success: true });
+    res.json({ success: true, inserted, updated });
   } catch (err) {
-    console.error("❌ Database operation failed:", err.stack || err);
-    res.status(500).json({ error: "Database operation failed" });
+    console.error("❌ Sync failed:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Webhook running on port ${PORT}`));
+// ✅ Start the server
+const PORT = process.env.PORT || 10000; // Render binds to 10000 automatically
+app.listen(PORT, () => console.log(`✅ OneSignal sync server running on port ${PORT}`));
