@@ -9,7 +9,7 @@ app.use(express.json());
 // ✅ Direct Postgres connection (Supabase)
 const pool = new Pool({
   connectionString:
-    "postgresql://postgres:ZHITafYu6WJqNqjJ@db.iznxrukdqbrcxjzhvwyk.supabase.co:5432/postgres",
+    "postgres://postgres.iznxrukdqbrcxjzhvwyk:ZHITafYu6WJqNqjJ@aws-0-us-west-1.pooler.supabase.com:5432/postgres",
   ssl: { rejectUnauthorized: true }, // validate SSL certificate
 });
 
