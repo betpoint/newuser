@@ -1,24 +1,29 @@
 import express from "express";
 import fetch from "node-fetch";
 import pkg from "pg";
+import cors from "cors"; // ✅ import cors
+
 const { Pool } = pkg;
 
 const app = express();
 app.use(express.json());
 
-// ✅ Direct Postgres connection (Supabase)
+// ✅ Enable CORS for all origins (required for Glide WebView)
+app.use(cors());
+
+// ------------------ Postgres config ------------------
 const pool = new Pool({
   connectionString:
     "postgres://postgres.iznxrukdqbrcxjzhvwyk:ZHITafYu6WJqNqjJ@aws-0-us-west-1.pooler.supabase.com:5432/postgres",
   ssl: { rejectUnauthorized: true }, // validate SSL certificate
 });
 
-// ✅ OneSignal configuration
+// ------------------ OneSignal config ------------------
 const ONE_SIGNAL_APP_ID = "ba021ecc-a1b5-4900-b9d1-7c60c0ba955f";
 const ONE_SIGNAL_REST_API_KEY =
-  "os_v2_app_xibb5tfbwveqboorprqmbouvl4wiembbq3huur4f46qilts2nkkbiemosz6jsvhik4kgmjqhg46q66lngabntbbih7g3bvt7bhv75qy"; // your REST key
+  "os_v2_app_xibb5tfbwveqboorprqmbouvl4wiembbq3huur4f46qilts2nkkbiemosz6jsvhik4kgmjqhg46q66lngabntbbih7g3bvt7bhv75qy";
 
-// ✅ Fetch all OneSignal players
+// ------------------ Fetch OneSignal players ------------------
 async function fetchPlayers() {
   const response = await fetch(
     `https://onesignal.com/api/v1/players?app_id=${ONE_SIGNAL_APP_ID}`,
@@ -37,12 +42,14 @@ async function fetchPlayers() {
   return data.players || [];
 }
 
-// ✅ POST /webhook → link a single device
+// ------------------ POST /webhook → link a single device ------------------
 app.post("/webhook", async (req, res) => {
   const { row_id, email } = req.body;
 
   if (!row_id || !email) {
-    return res.status(400).json({ success: false, error: "row_id and email are required" });
+    return res
+      .status(400)
+      .json({ success: false, error: "row_id and email are required" });
   }
 
   try {
@@ -61,11 +68,12 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// ✅ GET /sync-onesignal → sync all OneSignal players
+// ------------------ GET /sync-onesignal → sync all OneSignal players ------------------
 app.get("/sync-onesignal", async (req, res) => {
   try {
     const players = await fetchPlayers();
-    let inserted = 0, updated = 0;
+    let inserted = 0,
+      updated = 0;
 
     for (const player of players) {
       const id = player.id;
@@ -91,7 +99,7 @@ app.get("/sync-onesignal", async (req, res) => {
   }
 });
 
-// ✅ Start server (Render binds to port 10000)
+// ------------------ Start server ------------------
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
 
