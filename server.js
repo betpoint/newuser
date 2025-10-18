@@ -18,17 +18,39 @@ app.post("/webhook", async (req, res) => {
   }
 
   try {
-    await pool.query(
-      "INSERT INTO users (email, row_id) VALUES ($1, $2)",
-      [email, row_id]
+    // Check if row_id already exists
+    const existing = await pool.query(
+      "SELECT email FROM users WHERE row_id = $1",
+      [row_id]
     );
+
+    if (existing.rowCount === 0) {
+      // Insert new row
+      await pool.query(
+        "INSERT INTO users (row_id, email) VALUES ($1, $2)",
+        [row_id, email]
+      );
+      console.log("Inserted new user:", row_id, email);
+    } else if (existing.rows[0].email !== email) {
+      // Update email if different
+      await pool.query(
+        "UPDATE users SET email = $1 WHERE row_id = $2",
+        [email, row_id]
+      );
+      console.log("Updated email for row_id:", row_id, email);
+    } else {
+      // Both same → do nothing
+      console.log("No changes needed for row_id:", row_id);
+    }
+
     res.json({ success: true });
   } catch (err) {
-    console.error("DB insert error:", err);
-    res.status(500).json({ error: "Database insert failed" });
+    console.error("DB error:", err);
+    res.status(500).json({ error: "Database operation failed" });
   }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Webhook running on port ${PORT}`));
+
 
