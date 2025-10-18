@@ -5,9 +5,9 @@ const { Pool } = pkg;
 const app = express();
 app.use(express.json());
 
+// No SSL
 const pool = new Pool({
-  connectionString: "postgres://postgres.iznxrukdqbrcxjzhvwyk:ZHITafYu6WJqNqjJ@aws-0-us-west-1.pooler.supabase.com:5432/postgres",
-  ssl: { rejectUnauthorized: false }
+  connectionString: "postgres://postgres.iznxrukdqbrcxjzhvwyk:ZHITafYu6WJqNqjJ@aws-0-us-west-1.pooler.supabase.com:5432/postgres"
 });
 
 app.post("/webhook", async (req, res) => {
@@ -52,5 +52,3 @@ app.post("/webhook", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Webhook running on port ${PORT}`));
-
-
