@@ -5,13 +5,20 @@ const { Pool } = pkg;
 const app = express();
 app.use(express.json());
 
-// Connect to Postgres (with SSL)
+// Connect to Postgres (Supabase) with SSL
 const pool = new Pool({
-  connectionString: "postgres://postgres.iznxrukdqbrcxjzhvwyk:ZHITafYu6WJqNqjJ@aws-0-us-west-1.pooler.supabase.com:5432/postgres",
+  connectionString: process.env.DATABASE_URL || "postgres://postgres.iznxrukdqbrcxjzhvwyk:ZHITafYu6WJqNqjJ@aws-0-us-west-1.pooler.supabase.com:5432/postgres",
   ssl: { rejectUnauthorized: false }
 });
 
+// Optional: test DB connection on startup
+pool.connect()
+  .then(() => console.log("✅ DB connected"))
+  .catch(err => console.error("❌ DB connection failed:", err.stack || err));
+
 app.post("/webhook", async (req, res) => {
+  console.log("📥 Incoming payload:", req.body);
+
   const { email, row_id } = req.body;
 
   if (!email || !row_id) {
@@ -40,18 +47,15 @@ app.post("/webhook", async (req, res) => {
       );
       console.log(`✅ Updated email for row_id=${row_id} to email=${email}`);
     } else {
-      // Both same → do nothing
       console.log(`ℹ️ No changes needed for row_id=${row_id}`);
     }
 
     res.json({ success: true });
   } catch (err) {
-    console.error("❌ Database error:", err.stack || err);
+    console.error("❌ Database operation failed:", err.stack || err);
     res.status(500).json({ error: "Database operation failed" });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Webhook running on port ${PORT}`));
-
-
+app.listen(PORT, () => console.log(`🚀 Webhook running on port ${PORT}`));
