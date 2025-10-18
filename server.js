@@ -6,11 +6,13 @@ const { Pool } = pkg;
 const app = express();
 app.use(express.json());
 
-// ✅ Direct Postgres connection (Supabase)
+// ✅ Direct Postgres connection (Supabase) with proper SSL
 const pool = new Pool({
   connectionString:
     "postgresql://postgres:ZHITafYu6WJqNqjJ@db.iznxrukdqbrcxjzhvwyk.supabase.co:5432/postgres",
-  ssl: { rejectUnauthorized: false },
+  ssl: {
+    rejectUnauthorized: true, // validate SSL certificate
+  },
 });
 
 // ✅ OneSignal configuration
