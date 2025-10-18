@@ -5,7 +5,7 @@ const { Pool } = pkg;
 const app = express();
 app.use(express.json());
 
-// Supabase requires SSL
+// Connect to Postgres (with SSL)
 const pool = new Pool({
   connectionString: "postgres://postgres.iznxrukdqbrcxjzhvwyk:ZHITafYu6WJqNqjJ@aws-0-us-west-1.pooler.supabase.com:5432/postgres",
   ssl: { rejectUnauthorized: false }
@@ -20,37 +20,38 @@ app.post("/webhook", async (req, res) => {
 
   try {
     // Check if row_id exists
-    const { rowCount, rows } = await pool.query(
+    const existing = await pool.query(
       "SELECT email FROM users WHERE row_id = $1",
       [row_id]
     );
 
-    if (rowCount === 0) {
-      // Insert new user
+    if (existing.rowCount === 0) {
+      // Insert new row
       await pool.query(
         "INSERT INTO users (row_id, email) VALUES ($1, $2)",
         [row_id, email]
       );
-      console.log(`Inserted new user: ${row_id}, ${email}`);
-    } else if (rows[0].email !== email) {
-      // Update email if it differs
+      console.log(`✅ Inserted new user: row_id=${row_id}, email=${email}`);
+    } else if (existing.rows[0].email !== email) {
+      // Update email if different
       await pool.query(
         "UPDATE users SET email = $1 WHERE row_id = $2",
         [email, row_id]
       );
-      console.log(`Updated email for row_id: ${row_id}, new email: ${email}`);
+      console.log(`✅ Updated email for row_id=${row_id} to email=${email}`);
     } else {
-      // No change needed
-      console.log(`No changes needed for row_id: ${row_id}`);
+      // Both same → do nothing
+      console.log(`ℹ️ No changes needed for row_id=${row_id}`);
     }
 
     res.json({ success: true });
   } catch (err) {
-    console.error("Database error:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("❌ Database error:", err.stack || err);
+    res.status(500).json({ error: "Database operation failed" });
   }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Webhook running on port ${PORT}`));
+
 
