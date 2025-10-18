@@ -6,13 +6,11 @@ const { Pool } = pkg;
 const app = express();
 app.use(express.json());
 
-// ✅ Direct Postgres connection (Supabase) with proper SSL
+// ✅ Direct Postgres connection (Supabase)
 const pool = new Pool({
   connectionString:
     "postgresql://postgres:ZHITafYu6WJqNqjJ@db.iznxrukdqbrcxjzhvwyk.supabase.co:5432/postgres",
-  ssl: {
-    rejectUnauthorized: true, // validate SSL certificate
-  },
+  ssl: { rejectUnauthorized: true }, // validate SSL certificate
 });
 
 // ✅ OneSignal configuration
@@ -20,7 +18,7 @@ const ONE_SIGNAL_APP_ID = "ba021ecc-a1b5-4900-b9d1-7c60c0ba955f";
 const ONE_SIGNAL_REST_API_KEY =
   "os_v2_app_xibb5tfbwveqboorprqmbouvl4wiembbq3huur4f46qilts2nkkbiemosz6jsvhik4kgmjqhg46q66lngabntbbih7g3bvt7bhv75qy"; // your REST key
 
-// ✅ Function to fetch players from OneSignal
+// ✅ Fetch all OneSignal players
 async function fetchPlayers() {
   const response = await fetch(
     `https://onesignal.com/api/v1/players?app_id=${ONE_SIGNAL_APP_ID}`,
@@ -39,12 +37,35 @@ async function fetchPlayers() {
   return data.players || [];
 }
 
-// ✅ Route to trigger sync manually
+// ✅ POST /webhook → link a single device
+app.post("/webhook", async (req, res) => {
+  const { row_id, email } = req.body;
+
+  if (!row_id || !email) {
+    return res.status(400).json({ success: false, error: "row_id and email are required" });
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO users (row_id, email)
+       VALUES ($1, $2)
+       ON CONFLICT (row_id)
+       DO UPDATE SET email = EXCLUDED.email`,
+      [row_id, email]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DB error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ✅ GET /sync-onesignal → sync all OneSignal players
 app.get("/sync-onesignal", async (req, res) => {
   try {
     const players = await fetchPlayers();
-    let inserted = 0,
-      updated = 0;
+    let inserted = 0, updated = 0;
 
     for (const player of players) {
       const id = player.id;
@@ -70,9 +91,7 @@ app.get("/sync-onesignal", async (req, res) => {
   }
 });
 
-// ✅ Start server (Render listens on port 10000)
+// ✅ Start server (Render binds to port 10000)
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () =>
-  console.log(`✅ OneSignal sync server running on port ${PORT}`)
-);
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
 
